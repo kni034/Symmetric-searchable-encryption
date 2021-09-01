@@ -1,20 +1,22 @@
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.math.BigInteger;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.security.SecureRandom;
+import java.security.*;
 import java.util.*;
 import java.io.IOException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
-import java.security.GeneralSecurityException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-
 
 
 public class client {
@@ -24,30 +26,26 @@ public class client {
     private String key;
     private HashMap<String, String> lookup;
     private static char filler = '*';
-    private static String tmpFolder = "./src/main/resources/tmp/";
+    private static String tmpFolder = "./resources/";
     private static SecretKeySpec secretKey;
+    private static String initVector = "aaaaaaaaaaaaaaaa";
+    private static IvParameterSpec iv;
+    CryptoHelper ch;
 
 
     //initializes the sse with a secret key
 
 
-    public client(String key){
-        this.key = key;
-        // getInstance() method is called with algorithm SHA-512
-        MessageDigest md = null;
+    public client(String input){
+        ch = new CryptoHelper();
+        this.key = ch.sha512Hash(input);
+        secretKey = new SecretKeySpec(key.substring(0,16).getBytes(), "AES");
         try {
-            md = MessageDigest.getInstance("SHA-512");
-        } catch (NoSuchAlgorithmException e) {
+            iv = new IvParameterSpec(initVector.getBytes("UTF-8"));
+        } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
-
-        // digest() method is called
-        // to calculate message digest of the input string
-        // returned as array of byte
-        byte[] messageDigest = md.digest(key.getBytes());
-
-        this.key = md.toString();
-        secretKey = new SecretKeySpec(key.getBytes(), "AES");
+        lookup = new HashMap<String,String>();
     }
 
     //generates a search token to be sent to the server. includes encrypted search word and key k
@@ -59,7 +57,7 @@ public class client {
         keyword = correctLength(keyword);
 
         //TODO encrypt with aes ecb
-        keyword = gfg.permute(false, keyword);
+        //keyword = gfg.permute(false, keyword);
         String L = keyword.substring(0,blockSize-m);
         int k = L.hashCode();
 
@@ -176,7 +174,8 @@ public class client {
         String X = L + R;
 
         //TODO decrypt with aes ecb
-        String W = gfg.permute(true, X);
+        //String W = gfg.permute(true, X);
+        String W = X;
 
         return W;
     }
@@ -186,11 +185,12 @@ public class client {
 
 
     public void setLookup(File lookup) {
-        try {
-            File toFile = new File(tmpFolder + ".lookupDecrypted");
 
-            //TODO decrypt with aes cbc
-            FileEncryptor.decryptFile(lookup, toFile,  key);
+        File toFile = new File(tmpFolder + ".lookupDecrypted");
+
+        try {
+            ch.decryptFile(lookup, toFile, iv, secretKey);
+
             File toRead = toFile;
 
             FileInputStream fis = new FileInputStream(toRead);
@@ -211,8 +211,8 @@ public class client {
         }
     }
 
-    //returns the lookup table as a file
 
+    //returns the lookup table as a file
 
     public File getLookup() {
         File lookupFile = new File(tmpFolder + ".lookupClear");
@@ -228,16 +228,10 @@ public class client {
         } catch(Exception e) {
             e.printStackTrace();
         }
-        File toFile = null;
-        try {
-            toFile = new File(tmpFolder+".lookup");
-            //TODO encrypt with aes cbc
-            FileEncryptor.encryptFile(lookupFile, toFile, key);
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (GeneralSecurityException e) {
-            e.printStackTrace();
-        }
+        File toFile = new File(tmpFolder + ".lookupEncrypted");
+
+        ch.encryptFile(lookupFile, toFile, iv, secretKey);
+
         lookupFile.delete();
 
         return toFile;
@@ -295,7 +289,7 @@ public class client {
         word = correctLength(word);
 
         //TODO encrypt with aes ecb
-        word = gfg.permute(false, word);
+        //word = gfg.permute(false, word);
 
         String L = word.substring(0,blockSize-m);
         String R = word.substring(m);
@@ -396,7 +390,7 @@ public class client {
             this.buf = new char[length];
         }
 
-*
+
          //* Create an alphanumeric string generator.
 
 
@@ -404,7 +398,7 @@ public class client {
             this(length, random, alphanum);
         }
 
-*
+
          //* Create an alphanumeric strings from a secure generator.
 
 
@@ -412,33 +406,14 @@ public class client {
             this(length, new SecureRandom());
         }
 
-*
-         * Create session identifiers.
+
+         //* Create session identifiers.
 
 
         public RandomString() {
             this(21);
         }
 
-    }
-
-
-
-    public String get_SHA_512_SecurePassword(String passwordToHash, String salt){
-        String generatedPassword = null;
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-512");
-            md.update(salt.getBytes(StandardCharsets.UTF_8));
-            byte[] bytes = md.digest(passwordToHash.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for(int i=0; i< bytes.length ;i++){
-                sb.append(Integer.toString((bytes[i] & 0xff) + 0x100, 16).substring(1));
-            }
-            generatedPassword = sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
-        return generatedPassword;
     }
 
 }
