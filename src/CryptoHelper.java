@@ -26,7 +26,6 @@ public class CryptoHelper {
 
     public CryptoHelper(){
 
-
     }
 
     public void encryptFile(File inFile, File outFile, IvParameterSpec iv, SecretKeySpec skeySpec){

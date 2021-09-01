@@ -2,15 +2,12 @@ import java.util.LinkedList;
 
 public class trivium{
 
-    //byte[] s1 = new byte[92];
-    //byte[] s2 = new byte[83];
-    //byte[] s3 = new byte[110];
-
     LinkedList<Byte> s1 = new LinkedList<>();
     LinkedList<Byte> s2 = new LinkedList<>();
     LinkedList<Byte> s3 = new LinkedList<>();
 
 
+    //key and IV = byte array of length 80 containing only 0's and 1's
     public trivium(byte[] key, byte[] IV){
 
         if(key.length != 80){
@@ -22,10 +19,22 @@ public class trivium{
             return;
         }
 
+        for(int i=0;i<80;i++){
+            if(key[i] != 0 || key[i] != 1){
+                System.out.println("key contains character invalid character, 0 or 1 only");
+                return;
+            }
+            if(IV[i] != 0 || IV[i] != 1){
+                System.out.println("iv contains character invalid character, 0 or 1 only");
+                return;
+            }
+        }
+
         fillRegisters(key, IV);
         initialRounds();
     }
 
+    //key and iv = strings of length 10
     public trivium(String key, String IV){
 
         String keyBitString = convertStringToBinary(key);
@@ -86,18 +95,18 @@ public class trivium{
 
         byte t1, t2, t3;
 
-        byte result = (byte) (s1.get(64) ^ s1.get(91)
-                ^ s2.get(67) ^ s2.get(82)
-                ^ s3.get(64) ^ s3.get(109));
+        byte result = (byte) (s1.get(65) ^ s1.get(92)
+                ^ s2.get(68) ^ s2.get(83)
+                ^ s3.get(65) ^ s3.get(110));
 
-        t1 = (byte) (s1.get(89) & s1.get(90));
-        t1 ^= s2.get(76) ^ s1.get(64) ^ s1.get(91);
+        t1 = (byte) (s1.get(90) & s1.get(91));
+        t1 ^= s2.get(77) ^ s1.get(65) ^ s1.get(92);
 
-        t2 = (byte) (s2.get(80) & s2.get(81));
-        t2 ^= s3.get(85) ^ s2.get(67) ^ s2.get(82);
+        t2 = (byte) (s2.get(81) & s2.get(82));
+        t2 ^= s3.get(86) ^ s2.get(68) ^ s2.get(83);
 
-        t3 = (byte) (s3.get(107) & s3.get(108));
-        t3 ^= s1.get(67) ^ s3.get(64) ^ s3.get(109);
+        t3 = (byte) (s3.get(108) & s3.get(109));
+        t3 ^= s1.get(68) ^ s3.get(65) ^ s3.get(110);
 
         s1.add(0,t3);
         s2.add(0,t1);
@@ -115,7 +124,7 @@ public class trivium{
         for (int i = 0; i < key.length; i++) {
             s1.add(key[i]);
         }
-        for(int i=0;i<12;i++){
+        for(int i=0;i<12 + 1;i++){
             s1.add((byte) 0);
         }
 
@@ -123,12 +132,12 @@ public class trivium{
         for (int i = 0; i < IV.length; i++) {
             s2.add(IV[i]);
         }
-        for (int i=0;i<3;i++){
+        for (int i=0;i<3 + 1;i++){
             s2.add((byte) 0);
         }
 
         //init third register
-        for (int i = 0; i < 110 -3; i++) {
+        for (int i = 0; i < 111 -3; i++) {
             s3.add((byte) 0);
         }
         for (int i=0;i<3;i++){

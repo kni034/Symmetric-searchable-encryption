@@ -11,7 +11,7 @@ public class main {
 
         CryptoHelper ch = new CryptoHelper();
         trivium tr = new trivium("aaaaaaaaaa","aaaaaaaaaa");
-        System.out.println(Arrays.toString(tr.getNextNBits(100)));
+        System.out.println(Arrays.toString(tr.getNextNBits(10)));
 
     }
 }
