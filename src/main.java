@@ -1,4 +1,5 @@
 import java.io.File;
+import java.util.Arrays;
 
 
 public class main {
@@ -9,7 +10,8 @@ public class main {
         alice.setLookup(f);
 
         CryptoHelper ch = new CryptoHelper();
-        System.out.println(ch.sha512Hash("test123"));
+        trivium tr = new trivium("aaaaaaaaaa","aaaaaaaaaa");
+        System.out.println(Arrays.toString(tr.getNextNBits(100)));
 
     }
 }
