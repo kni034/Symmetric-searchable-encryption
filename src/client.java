@@ -240,8 +240,6 @@ public class client {
 
     //encrypts a block, used during encryption of file.
     //input: word = block to be encrypted, randomStringGenerator = generator that produces s
-
-
     private String encryptWord(String word, trivium tr) {
         word = correctLength(word);
 
@@ -257,10 +255,6 @@ public class client {
 
         String C1 = new String(ch.XORByteArrays(L.getBytes(charset), s.getBytes(charset)),charset);
         String C2 = new String(ch.XORByteArrays(R.getBytes(charset), fks.getBytes(charset)),charset);
-
-        //UTF-8 encodes some characters as 2- or 3- byte strings.
-        // Not every byte array is a valid UTF-8-encoded string.
-        // ISO-8859-1 would be a better choise: here each character is encoded as a byte.
 
         String C = C1 + C2;
         return C;

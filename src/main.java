@@ -16,8 +16,9 @@ public class main {
         File test = alice.encryptFile( new File("./resources/test.txt"));
         File testLookup = alice.getLookup();
         alice.setLookup(testLookup);
+        String token = alice.generateSearchToken(" ");
+        System.out.println(server.checkMatch(test, token));
         File test123 = alice.decryptFile(test);
-
 
 
         /*
