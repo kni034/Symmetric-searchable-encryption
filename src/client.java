@@ -21,8 +21,9 @@ import java.io.FileWriter;
 
 public class client {
 
-    private static int blockSize = 24;
-    private static int m = blockSize/2;
+    private static int blockSize = 32;
+    private static int encryptedBlockSize = 44;
+    private static int m = encryptedBlockSize/2;
     private String key;
     private HashMap<String, String> lookup;
     private static char filler = '*';
@@ -30,11 +31,11 @@ public class client {
     private static SecretKeySpec secretKey;
     private static String initVector = "aaaaaaaaaaaaaaaa";
     private static IvParameterSpec iv;
-    CryptoHelper ch;
+    private CryptoHelper ch;
+    private static Charset charset = java.nio.charset.StandardCharsets.ISO_8859_1;
 
 
     //initializes the sse with a secret key
-
 
     public client(String input){
         ch = new CryptoHelper();
@@ -56,33 +57,18 @@ public class client {
     public String generateSearchToken(String keyword){
         keyword = correctLength(keyword);
 
-        //TODO encrypt with aes ecb
-        //keyword = gfg.permute(false, keyword);
-        String L = keyword.substring(0,blockSize-m);
-        int k = L.hashCode();
+
+        keyword = ch.encryptECB(keyword, secretKey);
+        String L = keyword.substring(0,encryptedBlockSize-m);
+
+        String k = ch.sha512Hash(L).substring(0, 10);
 
 
         String token = keyword + k;
         return token;
     }
 
-    //adds the values of 2 bytes together to an int, and converts back to a byte
-    //works like the modulo operation
 
-
-    private byte f2plus(byte a, byte b){
-        Integer c = a + b;
-        return c.byteValue();
-    }
-
-    //subtracts the values of 2 bytes from each other to an int, and converts back to a byte
-    //works like the modulo operation
-
-
-    private byte f2minus(byte a, byte b){
-        Integer c = a - b;
-        return c.byteValue();
-    }
 
     //decrypts a file encrypted by the same user, uses the lookup table
     //input: encrypted = file to be decrypted
@@ -96,25 +82,25 @@ public class client {
             return encrypted;
         }
         String seed = lookup.get(hashed);
-        Random random = new Random(seed.hashCode());
-        RandomString randomStringGenerator = new RandomString(m,random);
+        trivium tr = new trivium(seed, initVector.substring(0, 10));
 
         File decrypted = new File(tmpFolder + encrypted.getName());
 
         try {
 
             String fileString = Files.readString(Paths.get(encrypted.getAbsolutePath()));
+            byte[] fileBytes = fileString.getBytes(charset);
 
             FileWriter fileWriter = new FileWriter(decrypted);
 
             for (int i = 0; i <= fileString.length() - 1;) {
-                String word = fileString.substring(i, i + blockSize);
-                String decryptedWord = decryptBlock(word,randomStringGenerator);
+                String word = fileString.substring(i, i + encryptedBlockSize);
+                String decryptedWord = decryptBlock(word,tr);
                 decryptedWord = decryptedWord.replace("*", "");
                 decryptedWord += " ";
                 fileWriter.write(decryptedWord);
 
-                i = i + blockSize;
+                i = i + encryptedBlockSize;
             }
 
             fileWriter.close();
@@ -127,55 +113,26 @@ public class client {
         return decrypted;
     }
 
+    //java.nio.charset.StandardCharsets.ISO_8859_1
+
     //decrypts block,used during decrypting
     //input: word= block to be decrypted, randomStringGenerator = generator which generates s
-
-
-    private String decryptBlock(String word, RandomString randomStringGenerator){
-
-
-        String C1 = word.substring(0,blockSize-m);
+    private String decryptBlock(String word, trivium tr){
+        String C1 = word.substring(0,encryptedBlockSize-m);
         String C2 = word.substring(m);
 
-        String s = randomStringGenerator.nextString();
+        String s = new String(tr.getNextNBytes(encryptedBlockSize-m),charset);
 
-        byte[] sBytes = s.getBytes(StandardCharsets.UTF_8);
-        byte[] cipherBytes1 = C1.getBytes(StandardCharsets.UTF_8);
+        String L = new String(ch.XORByteArrays(C1.getBytes(charset), s.getBytes(charset)),charset);
 
-        byte[] LBytes = new byte[cipherBytes1.length];
+        String k = ch.sha512Hash(L).substring(0, 10);
+        String fks = ch.sha512Hash(s + k).substring(0, m);
 
-        for (int i =0;i<cipherBytes1.length;i++){
-            LBytes[i] = f2minus(cipherBytes1[i] , sBytes[i]);
-        }
-
-        String L = new String(LBytes, StandardCharsets.UTF_8);
-
-        int k = L.hashCode();
-        Random random = new Random(k);
-        RandomString fkGenerator = new RandomString(blockSize-m,random);
-        String fk = fkGenerator.nextString();
-
-        byte[] cipherBytes2 = C2.getBytes(StandardCharsets.UTF_8);
-        byte[] fkBytes = fk.getBytes(StandardCharsets.UTF_8);
-
-        byte[] fsBytes = new byte[fkBytes.length];
-        for (int i =0;i<fsBytes.length;i++){
-            fsBytes[i] = f2plus(fkBytes[i] , sBytes[i]);
-        }
-
-        byte[] RBytes = new byte[cipherBytes2.length];
-
-        for (int i =0;i<cipherBytes2.length;i++){
-            RBytes[i] = f2minus(cipherBytes2[i] , fsBytes[i]);
-        }
-
-        String R = new String(RBytes, StandardCharsets.UTF_8);
+        String R = new String(ch.XORByteArrays(C2.getBytes(charset), fks.getBytes(charset)),charset);
 
         String X = L + R;
 
-        //TODO decrypt with aes ecb
-        //String W = gfg.permute(true, X);
-        String W = X;
+        String W = ch.decryptECB(X, secretKey);
 
         return W;
     }
@@ -246,12 +203,12 @@ public class client {
         if(lookup == null){
             lookup = new HashMap<String,String>();
         }
-        int numberOfFiles = lookup.size();
-        String seed = key + numberOfFiles;
+        String numberOfFiles = "" + lookup.size();
+        String seed = key.substring(0,10);
+        seed = seed.substring(0, seed.length() - numberOfFiles.length());
+        seed += numberOfFiles;
 
-        Random random = new Random(seed.hashCode());
-        RandomString randomStringGenerator = new RandomString(m,random);
-
+        trivium tr = new trivium(seed, initVector.substring(0, 10));
         File encrypted = new File(tmpFolder + clear.getName());
         try {
 
@@ -263,7 +220,7 @@ public class client {
                 String[] words = data.split(" ");
 
                 for(String word : words){
-                    String encryptedWord = encryptWord(word,randomStringGenerator);
+                    String encryptedWord = encryptWord(word,tr);
                     fileWriter.write(encryptedWord);
                 }
             }
@@ -285,49 +242,27 @@ public class client {
     //input: word = block to be encrypted, randomStringGenerator = generator that produces s
 
 
-    private String encryptWord(String word, RandomString randomStringGenerator) {
+    private String encryptWord(String word, trivium tr) {
         word = correctLength(word);
 
-        //TODO encrypt with aes ecb
-        //word = gfg.permute(false, word);
+        word = ch.encryptECB(word, secretKey);
 
-        String L = word.substring(0,blockSize-m);
+        String L = word.substring(0,encryptedBlockSize-m);
         String R = word.substring(m);
-        int k = L.hashCode();
+        String k = ch.sha512Hash(L).substring(0, 10);
 
-        String s = randomStringGenerator.nextString();
+        String s = new String(tr.getNextNBytes(encryptedBlockSize-m),charset);
 
-        Random random = new Random(k);
-        RandomString fkGenerator = new RandomString(blockSize-m,random);
-        String fk = fkGenerator.nextString();
+        String fks = ch.sha512Hash(s + k).substring(0, m);
 
-        byte[] clearBytes1 = L.getBytes(StandardCharsets.UTF_8);
-        byte[] clearBytes2 = R.getBytes(StandardCharsets.UTF_8);
+        String C1 = new String(ch.XORByteArrays(L.getBytes(charset), s.getBytes(charset)),charset);
+        String C2 = new String(ch.XORByteArrays(R.getBytes(charset), fks.getBytes(charset)),charset);
 
-        byte[] sBytes = s.getBytes(StandardCharsets.UTF_8);
-        byte[] fkBytes = fk.getBytes(StandardCharsets.UTF_8);
+        //UTF-8 encodes some characters as 2- or 3- byte strings.
+        // Not every byte array is a valid UTF-8-encoded string.
+        // ISO-8859-1 would be a better choise: here each character is encoded as a byte.
 
-        byte[] fsBytes = new byte[fkBytes.length];
-        for (int i =0;i<fsBytes.length;i++){
-            fsBytes[i] = f2plus(sBytes[i] , fkBytes[i]);
-        }
-
-        byte[] C1 = new byte[clearBytes1.length];
-        byte[] C2 = new byte[clearBytes2.length];
-
-        for (int i =0;i<clearBytes1.length;i++){
-            C1[i] = f2plus(clearBytes1[i] , sBytes[i]);
-        }
-        for (int i =0;i<clearBytes2.length;i++){
-            C2[i] = f2plus(clearBytes2[i] , fsBytes[i]);
-        }
-
-        String C1string = new String(C1, StandardCharsets.UTF_8);
-        String C2string = new String(C2, StandardCharsets.UTF_8);
-
-        String C = C1string + C2string;
-
-
+        String C = C1 + C2;
         return C;
     }
 
@@ -347,15 +282,8 @@ public class client {
         return keyword;
     }
 
-    private byte[] byteToBits(byte in){
-
-
-        
-        return null;
-    }
 
     //class to generate random strings, used to generate s
-
 
     private static class RandomString {
 

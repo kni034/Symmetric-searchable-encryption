@@ -11,21 +11,75 @@ import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedList;
 
 public class CryptoHelper {
 
-    private static int blockSize = 24;
-    private static int m = blockSize/2;
-    private String key;
-    private static SecretKeySpec secretKey;
-    private static String initVector;
+    //private static int blockSize = 24;
+    //private static int m = blockSize/2;
+    //private String key;
+    //private static SecretKeySpec secretKey;
+    //private static String initVector;
 
 
 
     public CryptoHelper(){
 
+    }
+
+    public String encryptECB(String word, SecretKeySpec key){
+        try {
+            Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, key);
+            return Base64.getEncoder().encodeToString(cipher.doFinal(word.getBytes("UTF-8")));
+        } catch (IllegalBlockSizeException e) {
+            e.printStackTrace();
+        } catch (BadPaddingException e) {
+            e.printStackTrace();
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        } catch (NoSuchPaddingException e) {
+            e.printStackTrace();
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (InvalidKeyException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+
+    }
+
+    //converts each byte to binary and xors with the corresponding byte in the other array to get a new byte array
+    public byte[] XORByteArrays(byte[] array1, byte[] array2){
+        byte[] result = new byte[array1.length];
+        for(int i=0;i<array1.length;i++){
+            String binary = "";
+            String s1 = String.format("%8s", Integer.toBinaryString(array1[i] & 0xFF)).replace(' ', '0');
+            String s2 = String.format("%8s", Integer.toBinaryString(array2[i] & 0xFF)).replace(' ', '0');
+            for(int j=0;j<s1.length();j++){
+                binary += ((int)s1.charAt(j) - 48 + (int)s2.charAt(j) - 48) % 2;
+            }
+            int foo = Integer.parseInt(binary, 2);
+            result[i] = (byte) foo;
+        }
+        return result;
+    }
+
+    public String decryptECB(String cipherText, SecretKeySpec key){
+        try
+        {
+            Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, key);
+            return new String(cipher.doFinal(Base64.getDecoder().decode(cipherText)));
+        }
+        catch (Exception e)
+        {
+            System.out.println("Error while decrypting: " + e.toString());
+        }
+        return null;
     }
 
     public void encryptFile(File inFile, File outFile, IvParameterSpec iv, SecretKeySpec skeySpec){
@@ -71,6 +125,27 @@ public class CryptoHelper {
         } catch (InvalidKeyException e) {
             e.printStackTrace();
         }
+    }
+
+    public byte[] convertStringToBinary(String input) {
+
+        StringBuilder result = new StringBuilder();
+        char[] chars = input.toCharArray();
+        for (char aChar : chars) {
+            result.append(
+                    String.format("%8s", Integer.toBinaryString(aChar))   // char -> int, auto-cast
+                            .replaceAll(" ", "0")                         // zero pads
+            );
+        }
+        byte[] byteResult = new byte[input.length()*8];
+
+        for(int i=0;i<byteResult.length;i++) {
+            // -48 because char "0" = byte 48, and char "1" = byte 49
+            byteResult[i] = (byte) result.charAt(i);
+            byteResult[i] -= 48;
+        }
+        return byteResult;
+
     }
 
 

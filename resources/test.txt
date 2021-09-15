@@ -1,1 +1,1 @@
-I am trying to make a bash script that automates the installation of several packages that I use on any ubuntu machine. I frequently create virtual machines either through Amazon AWS or Digital Ocean and would like to just run one script to install all the packages I use.
+123 tets 

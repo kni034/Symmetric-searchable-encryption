@@ -64,6 +64,21 @@ public class trivium{
         initialRounds();
     }
 
+    public byte[] getNextNBytes(int n){
+        byte[] result = new byte[n];
+        for(int i=0;i<n;i++){
+            byte[] temp = getNextNBits(8);
+            //converts list of bits to string, then converts bitstring to byte and appends to result array
+            String bin = "";
+            for(byte bit : temp){
+                bin += bit;
+            }
+            int foo = Integer.parseInt(bin, 2);
+            result[i] = (byte) foo;
+        }
+        return result;
+    }
+
     public byte[] getNextNBits(int n){
         byte[] nextBits = new byte[n];
         for (int i=0;i<n;i++){
