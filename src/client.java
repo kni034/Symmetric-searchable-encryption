@@ -5,6 +5,7 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
+import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -21,62 +22,95 @@ import java.io.FileWriter;
 
 public class client {
 
-    private static int blockSize = 32;
-    private static int encryptedBlockSize = 44;
-    private static int m = encryptedBlockSize/2;
+    private static int blockSize;
+    private static int encryptedBlockSize;
+    private static int m;
     private String key;
     private HashMap<String, String> lookup;
     private static char filler = '*';
-    private static String tmpFolder = "./resources/";
-    private static SecretKeySpec secretKey;
-    private static String initVector = "aaaaaaaaaaaaaaaa";
-    private static IvParameterSpec iv;
+    private static final String tmpFolder = "./resources/";
+    private SecretKeySpec secretKey;
+    private String initVector;
+    private IvParameterSpec iv;
     private CryptoHelper ch;
-    private static Charset charset = java.nio.charset.StandardCharsets.ISO_8859_1;
+    private static Charset charset = StandardCharsets.UTF_8;
+    private String userID;
+    private server server;
 
 
     //initializes the sse with a secret key
 
-    public client(String input){
+    public client(String userID, String userkey, server server, int blockSize){
+        this.blockSize = blockSize;
+        this.encryptedBlockSize = base64OutputLength(blockSize);
+        this.m = encryptedBlockSize/2;
+        this.server = server;
+        this.userID = userID;
         ch = new CryptoHelper();
-        this.key = ch.sha512Hash(input);
+        this.key = ch.sha512Hash(userkey);
         secretKey = new SecretKeySpec(key.substring(0,16).getBytes(), "AES");
+        initVector = key.substring(16,32);
         try {
             iv = new IvParameterSpec(initVector.getBytes("UTF-8"));
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
-        lookup = new HashMap<String,String>();
+        lookup = new HashMap<>();
     }
+
+    public String getName(){
+        return userID;
+    }
+
 
     //generates a search token to be sent to the server. includes encrypted search word and key k
     //input: keyword to be encrypted and made into a search token
     //returns the token as a string
+    private String[] generateSearchTokens(String word){
+        String[] keywords = separateWords(word);
+
+        ArrayList<String> tokens = new ArrayList<>();
+
+        for (String keyword : keywords) {
+            keyword = ch.encryptECB(keyword, secretKey);
+            String L = keyword.substring(0, encryptedBlockSize - m);
+
+            String k = ch.sha512Hash(L + key).substring(0, 10);
 
 
-    public String generateSearchToken(String keyword){
-        keyword = correctLength(keyword);
+            String token = keyword + k;
+            tokens.add(token);
+        }
 
-
-        keyword = ch.encryptECB(keyword, secretKey);
-        String L = keyword.substring(0,encryptedBlockSize-m);
-
-        String k = ch.sha512Hash(L).substring(0, 10);
-
-
-        String token = keyword + k;
-        return token;
+        return tokens.toArray(new String[0]);
     }
 
 
 
+    private void decryptAllFiles(File[] files){
+        if (files.length == 0){
+            return;
+        }
+        ArrayList<File> fileList = new ArrayList<>();
+        Collections.addAll(fileList, files);
+        for(File f: files){
+            if(f.getName().equals(".lookup")){
+                setLookup(f);
+                fileList.remove(f);
+            }
+        }
+
+        for(File f: fileList){
+            File g = decryptFile(f);
+            g.renameTo(new File(tmpFolder+ f.getName()));
+        }
+    }
+
     //decrypts a file encrypted by the same user, uses the lookup table
     //input: encrypted = file to be decrypted
     //returns decrypted file
-
-
-    public File decryptFile(File encrypted){
-        String hashed = Integer.toString(encrypted.hashCode());
+    private File decryptFile(File encrypted){
+        String hashed = ch.fileChecksum(encrypted);
         if (!lookup.containsKey(hashed)){
             System.out.println("key missing in lookup");
             return encrypted;
@@ -110,6 +144,8 @@ public class client {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        encrypted.delete();
+
         return decrypted;
     }
 
@@ -125,7 +161,7 @@ public class client {
 
         String L = new String(ch.XORByteArrays(C1.getBytes(charset), s.getBytes(charset)),charset);
 
-        String k = ch.sha512Hash(L).substring(0, 10);
+        String k = ch.sha512Hash(L + key).substring(0, 10);
         String fks = ch.sha512Hash(s + k).substring(0, m);
 
         String R = new String(ch.XORByteArrays(C2.getBytes(charset), fks.getBytes(charset)),charset);
@@ -141,7 +177,7 @@ public class client {
     //input: lookup = lookup file
 
 
-    public void setLookup(File lookup) {
+    private void setLookup(File lookup) {
 
         File toFile = new File(tmpFolder + ".lookupDecrypted");
 
@@ -161,7 +197,7 @@ public class client {
             this.lookup = mapInFile;
 
             toFile.delete();
-            lookup.delete();
+            //lookup.delete();
 
         } catch(Exception e) {
             e.printStackTrace();
@@ -171,7 +207,7 @@ public class client {
 
     //returns the lookup table as a file
 
-    public File getLookup() {
+    private File getLookup() {
         File lookupFile = new File(tmpFolder + ".lookupClear");
 
         try {
@@ -185,7 +221,7 @@ public class client {
         } catch(Exception e) {
             e.printStackTrace();
         }
-        File toFile = new File(tmpFolder + ".lookupEncrypted");
+        File toFile = new File(tmpFolder + ".lookup");
 
         ch.encryptFile(lookupFile, toFile, iv, secretKey);
 
@@ -194,14 +230,35 @@ public class client {
         return toFile;
     }
 
+    public void search(String searchWord){
+        String[] tokens = generateSearchTokens(searchWord);
+        List<File> matches = Arrays.asList(server.search(getName(),tokens[0]));
+        for (String token:tokens) {
+            File[] files = server.search(getName(), token);
+            matches.retainAll(Arrays.asList(files));
+        }
+        decryptAllFiles(matches.toArray(new File[0]));
+        System.out.println("Client: search successful");
+    }
+
+    public void upload(File f){
+        File oldLookup = server.getLookup(getName());
+        if(oldLookup != null){
+            setLookup(oldLookup);
+        }
+
+        File encrypted = encryptFile(f);
+        File lookup = getLookup();
+        server.upload(getName(), encrypted, lookup);
+        System.out.println("Client: upload successful");
+    }
+
     //encrypts a file with the sse algorithm.
     //input: clear = file to be encrypted
     //returns the encrypted file
-
-
-    public File encryptFile(File clear) {
+    private File encryptFile(File clear) {
         if(lookup == null){
-            lookup = new HashMap<String,String>();
+            lookup = new HashMap<>();
         }
         String numberOfFiles = "" + lookup.size();
         String seed = key.substring(0,10);
@@ -211,7 +268,6 @@ public class client {
         trivium tr = new trivium(seed, initVector.substring(0, 10));
         File encrypted = new File(tmpFolder + clear.getName());
         try {
-
             Scanner fileReader = new Scanner(clear);
             fileReader.hasNextLine();
             FileWriter fileWriter = new FileWriter(encrypted);
@@ -220,8 +276,11 @@ public class client {
                 String[] words = data.split(" ");
 
                 for(String word : words){
-                    String encryptedWord = encryptWord(word,tr);
-                    fileWriter.write(encryptedWord);
+                    String[] splitWords = separateWords(word);
+                    for(String w: splitWords) {
+                        String encryptedWord = encryptWord(w, tr);
+                        fileWriter.write(encryptedWord);
+                    }
                 }
             }
             fileWriter.close();
@@ -233,109 +292,75 @@ public class client {
             e.printStackTrace();
         }
 
-        lookup.put(Integer.toString(encrypted.hashCode()), seed);
+        lookup.put(ch.fileChecksum(encrypted), seed);
 
         return encrypted;
     }
 
     //encrypts a block, used during encryption of file.
     //input: word = block to be encrypted, randomStringGenerator = generator that produces s
-    private String encryptWord(String word, trivium tr) {
-        word = correctLength(word);
-
-        word = ch.encryptECB(word, secretKey);
+    private String encryptWord(String w, trivium tr) {
+        String word = ch.encryptECB(w, secretKey);
 
         String L = word.substring(0,encryptedBlockSize-m);
         String R = word.substring(m);
-        String k = ch.sha512Hash(L).substring(0, 10);
+        String k = ch.sha512Hash(L + key).substring(0, 10);
 
-        String s = new String(tr.getNextNBytes(encryptedBlockSize-m),charset);
+        String s = new String(tr.getNextNBytes(encryptedBlockSize-m),StandardCharsets.ISO_8859_1);
 
-        String fks = ch.sha512Hash(s + k).substring(0, m);
+        String fks = ch.sha512Hash(s + k).substring(0, encryptedBlockSize-m);
 
-        String C1 = new String(ch.XORByteArrays(L.getBytes(charset), s.getBytes(charset)),charset);
-        String C2 = new String(ch.XORByteArrays(R.getBytes(charset), fks.getBytes(charset)),charset);
+        String C1 = new String(ch.XORByteArrays(L.getBytes(StandardCharsets.ISO_8859_1), s.getBytes(StandardCharsets.ISO_8859_1)),StandardCharsets.ISO_8859_1);
+        String C2 = new String(ch.XORByteArrays(R.getBytes(StandardCharsets.ISO_8859_1), fks.getBytes(StandardCharsets.ISO_8859_1)),StandardCharsets.ISO_8859_1);
 
         String C = C1 + C2;
         return C;
     }
 
-    //converts a word to the length of the block size. uses * as filler characters
-    //input: keyword = string to convert
-    //returns string of correct length
 
-
-    private String correctLength(String keyword) {
-        while(keyword.length() < blockSize){
-            keyword += filler;
+    private String[] separateWords(String word){
+        ArrayList<String> words = new ArrayList<>();
+        byte[] bytes = word.getBytes(StandardCharsets.UTF_8);
+        ArrayList<Byte> wordBytes = new ArrayList<>();
+        for (byte b : bytes){
+            wordBytes.add(b);
         }
-        while (keyword.length() > blockSize){
-            keyword = keyword.substring(0, keyword.length() - 1);
+        while(wordBytes.size() > blockSize-2){
+            List<Byte> a = wordBytes.subList(0,blockSize-2);
+            for(int i=0;i<blockSize-2;i++){
+                wordBytes.remove(0);
+            }
+            a.add("0".getBytes(charset)[0]); //we can only do this because we know that "0" in utf 8 is stored in a single byte
+            a.add("0".getBytes(charset)[0]);
+            words.add(a.toString());
         }
-
-        return keyword;
+        int counter = 0;
+        while (wordBytes.size() < blockSize-2){
+            wordBytes.add((Byte)"*".getBytes(charset)[0]);
+            counter++;
+        }
+        String lastWord = byteListToString(wordBytes, charset);
+        lastWord += counter;
+        words.add(lastWord);
+        return words.toArray(new String[0]);
     }
 
-
-    //class to generate random strings, used to generate s
-
-    private static class RandomString {
-
-         //* Generate a random string.
-
-
-        public String nextString() {
-            for (int idx = 0; idx < buf.length; ++idx)
-                buf[idx] = symbols[random.nextInt(symbols.length)];
-            return new String(buf);
+    public static String byteListToString(List<Byte> l, Charset charset) {
+        if (l == null) {
+            return "";
         }
-
-        public static final String upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-        public static final String lower = upper.toLowerCase(Locale.ROOT);
-
-        public static final String digits = "0123456789";
-
-        public static final String alphanum = upper + lower + digits;
-
-        private final Random random;
-
-        private final char[] symbols;
-
-        private final char[] buf;
-
-        public RandomString(int length, Random random, String symbols) {
-            if (length < 1) throw new IllegalArgumentException();
-            if (symbols.length() < 2) throw new IllegalArgumentException();
-            this.random = Objects.requireNonNull(random);
-            this.symbols = symbols.toCharArray();
-            this.buf = new char[length];
+        byte[] array = new byte[l.size()];
+        int i = 0;
+        for (Byte current : l) {
+            array[i] = current;
+            i++;
         }
-
-
-         //* Create an alphanumeric string generator.
-
-
-        public RandomString(int length, Random random) {
-            this(length, random, alphanum);
-        }
-
-
-         //* Create an alphanumeric strings from a secure generator.
-
-
-        public RandomString(int length) {
-            this(length, new SecureRandom());
-        }
-
-
-         //* Create session identifiers.
-
-
-        public RandomString() {
-            this(21);
-        }
-
+        return new String(array, charset);
     }
 
+    //calculates how big the output of base64 encoder, based on the input size.
+    //used to caluclate the encrypted block size
+    int base64OutputLength(int blocksize) {
+        return (int)(4 * Math.ceil(blocksize / 3.0));
+    }
 }
