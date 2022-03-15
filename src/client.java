@@ -149,7 +149,6 @@ public class client {
     }
 
     private String removePadding(String word){
-        System.out.println(word+ " " + word.length());
         String paddingLength = word.substring(word.length()-2);
         int paddingNum = Integer.parseInt(paddingLength);
         if (paddingNum == -1){
