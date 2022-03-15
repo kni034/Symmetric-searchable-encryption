@@ -98,7 +98,7 @@ public class server {
 
         String fileString = null;
         try {
-            fileString = Files.readString(Paths.get(encrypted.getAbsolutePath()), StandardCharsets.ISO_8859_1);
+            fileString = Files.readString(Paths.get(encrypted.getAbsolutePath()), charset);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -115,11 +115,11 @@ public class server {
 
             String c2 = word.substring(m);
 
-            String s = new String(ch.XORByteArrays(c1.getBytes(charset), L.getBytes(charset)), StandardCharsets.ISO_8859_1);
+            String s = new String(ch.XORByteArrays(c1.getBytes(charset), L.getBytes(charset)), charset);
 
             String fks = ch.sha512Hash(s + k).substring(0, encryptedBlockSize-m);
 
-            String test = new String(ch.XORByteArrays(c2.getBytes(charset), fks.getBytes(charset)), StandardCharsets.ISO_8859_1);
+            String test = new String(ch.XORByteArrays(c2.getBytes(charset), fks.getBytes(charset)), charset);
 
             if(R.equals(test)){
                 return true;

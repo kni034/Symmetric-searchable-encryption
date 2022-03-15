@@ -34,6 +34,7 @@ public class client {
     private IvParameterSpec iv;
     private CryptoHelper ch;
     private static Charset charset = StandardCharsets.UTF_8;
+    private static Charset encryptedCharset = StandardCharsets.ISO_8859_1;
     private String userID;
     private server server;
 
@@ -122,16 +123,14 @@ public class client {
 
         try {
 
-            String fileString = Files.readString(Paths.get(encrypted.getAbsolutePath()));
-            byte[] fileBytes = fileString.getBytes(charset);
+            String fileString = Files.readString(Paths.get(encrypted.getAbsolutePath()), encryptedCharset);
 
             FileWriter fileWriter = new FileWriter(decrypted);
 
             for (int i = 0; i <= fileString.length() - 1;) {
                 String word = fileString.substring(i, i + encryptedBlockSize);
                 String decryptedWord = decryptBlock(word,tr);
-                decryptedWord = decryptedWord.replace("*", "");
-                decryptedWord += " ";
+                decryptedWord = removePadding(decryptedWord);
                 fileWriter.write(decryptedWord);
 
                 i = i + encryptedBlockSize;
@@ -149,7 +148,23 @@ public class client {
         return decrypted;
     }
 
-    //java.nio.charset.StandardCharsets.ISO_8859_1
+    private String removePadding(String word){
+        System.out.println(word+ " " + word.length());
+        String paddingLength = word.substring(word.length()-2);
+        int paddingNum = Integer.parseInt(paddingLength);
+        if (paddingNum == -1){
+            paddingNum = 0;
+            String originalWord = word.substring(0,word.length() - 2 - paddingNum); // padding = -1 means that it is part of a bigger word, no space added
+            return originalWord;
+        }
+
+        String originalWord = word.substring(0,word.length() - 2 - paddingNum);
+        originalWord += " ";
+        return originalWord;
+
+    }
+
+    //java.nio.charset.encryptedCharset
 
     //decrypts block,used during decrypting
     //input: word= block to be decrypted, randomStringGenerator = generator which generates s
@@ -157,14 +172,14 @@ public class client {
         String C1 = word.substring(0,encryptedBlockSize-m);
         String C2 = word.substring(m);
 
-        String s = new String(tr.getNextNBytes(encryptedBlockSize-m),charset);
+        String s = new String(tr.getNextNBytes(encryptedBlockSize-m),encryptedCharset);
 
-        String L = new String(ch.XORByteArrays(C1.getBytes(charset), s.getBytes(charset)),charset);
+        String L = new String(ch.XORByteArrays(C1.getBytes(encryptedCharset), s.getBytes(encryptedCharset)),encryptedCharset);
 
         String k = ch.sha512Hash(L + key).substring(0, 10);
-        String fks = ch.sha512Hash(s + k).substring(0, m);
+        String fks = ch.sha512Hash(s + k).substring(0, encryptedBlockSize-m);
 
-        String R = new String(ch.XORByteArrays(C2.getBytes(charset), fks.getBytes(charset)),charset);
+        String R = new String(ch.XORByteArrays(C2.getBytes(encryptedCharset), fks.getBytes(encryptedCharset)),encryptedCharset);
 
         String X = L + R;
 
@@ -270,7 +285,7 @@ public class client {
         try {
             Scanner fileReader = new Scanner(clear);
             fileReader.hasNextLine();
-            FileWriter fileWriter = new FileWriter(encrypted);
+            FileOutputStream fileWriter = new FileOutputStream(encrypted);
             while (fileReader.hasNextLine()) {
                 String data = fileReader.nextLine();
                 String[] words = data.split(" ");
@@ -279,7 +294,7 @@ public class client {
                     String[] splitWords = separateWords(word);
                     for(String w: splitWords) {
                         String encryptedWord = encryptWord(w, tr);
-                        fileWriter.write(encryptedWord);
+                        fileWriter.write(encryptedWord.getBytes(encryptedCharset));
                     }
                 }
             }
@@ -306,12 +321,12 @@ public class client {
         String R = word.substring(m);
         String k = ch.sha512Hash(L + key).substring(0, 10);
 
-        String s = new String(tr.getNextNBytes(encryptedBlockSize-m),StandardCharsets.ISO_8859_1);
+        String s = new String(tr.getNextNBytes(encryptedBlockSize-m),encryptedCharset);
 
         String fks = ch.sha512Hash(s + k).substring(0, encryptedBlockSize-m);
 
-        String C1 = new String(ch.XORByteArrays(L.getBytes(StandardCharsets.ISO_8859_1), s.getBytes(StandardCharsets.ISO_8859_1)),StandardCharsets.ISO_8859_1);
-        String C2 = new String(ch.XORByteArrays(R.getBytes(StandardCharsets.ISO_8859_1), fks.getBytes(StandardCharsets.ISO_8859_1)),StandardCharsets.ISO_8859_1);
+        String C1 = new String(ch.XORByteArrays(L.getBytes(encryptedCharset), s.getBytes(encryptedCharset)),encryptedCharset);
+        String C2 = new String(ch.XORByteArrays(R.getBytes(encryptedCharset), fks.getBytes(encryptedCharset)),encryptedCharset);
 
         String C = C1 + C2;
         return C;
@@ -326,22 +341,33 @@ public class client {
             wordBytes.add(b);
         }
         while(wordBytes.size() > blockSize-2){
-            List<Byte> a = wordBytes.subList(0,blockSize-2);
+
+            //ArrayList<Byte> a = new ArrayList<>();
+            byte[] a = new byte[blockSize];
+
             for(int i=0;i<blockSize-2;i++){
+                a[i] = wordBytes.get(0);
                 wordBytes.remove(0);
             }
-            a.add("0".getBytes(charset)[0]); //we can only do this because we know that "0" in utf 8 is stored in a single byte
-            a.add("0".getBytes(charset)[0]);
-            words.add(a.toString());
+
+                a[blockSize-2] = ("-".getBytes(charset)[0]);
+                a[blockSize-1] = ("1".getBytes(charset)[0]);
+
+
+
+
+            words.add(new String(a, charset));
         }
-        int counter = 0;
-        while (wordBytes.size() < blockSize-2){
-            wordBytes.add((Byte)"*".getBytes(charset)[0]);
-            counter++;
+        if(wordBytes.size() != 0) {
+            int counter = 0;
+            while (wordBytes.size() < blockSize - 2) {
+                wordBytes.add("*".getBytes(charset)[0]);
+                counter++;
+            }
+            String lastWord = byteListToString(wordBytes, charset);
+            lastWord += String.format("%02d", counter);
+            words.add(lastWord);
         }
-        String lastWord = byteListToString(wordBytes, charset);
-        lastWord += counter;
-        words.add(lastWord);
         return words.toArray(new String[0]);
     }
 
