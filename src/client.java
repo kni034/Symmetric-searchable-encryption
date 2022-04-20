@@ -23,7 +23,6 @@ import java.io.FileWriter;
 public class client {
 
     private static int blockSize;
-    private static int encryptedBlockSize;
     private static int m;
     private String key;
     private HashMap<String, String> lookup;
@@ -43,8 +42,8 @@ public class client {
 
     public client(String userID, String userkey, server server, int blockSize){
         this.blockSize = blockSize;
-        this.encryptedBlockSize = base64OutputLength(blockSize);
-        this.m = encryptedBlockSize/2;
+
+        this.m = blockSize/2;
         this.server = server;
         this.userID = userID;
         ch = new CryptoHelper();
@@ -74,7 +73,7 @@ public class client {
 
         for (String keyword : keywords) {
             keyword = ch.encryptECB(keyword, secretKey);
-            String L = keyword.substring(0, encryptedBlockSize - m);
+            String L = keyword.substring(0, blockSize - m);
 
             String k = ch.sha512Hash(L + key).substring(0, 10);
 
@@ -128,12 +127,12 @@ public class client {
             FileWriter fileWriter = new FileWriter(decrypted);
 
             for (int i = 0; i <= fileString.length() - 1;) {
-                String word = fileString.substring(i, i + encryptedBlockSize);
+                String word = fileString.substring(i, i + blockSize);
                 String decryptedWord = decryptBlock(word,tr);
                 decryptedWord = removePadding(decryptedWord);
                 fileWriter.write(decryptedWord);
 
-                i = i + encryptedBlockSize;
+                i = i + blockSize;
             }
 
             fileWriter.close();
@@ -168,15 +167,15 @@ public class client {
     //decrypts block,used during decrypting
     //input: word= block to be decrypted, randomStringGenerator = generator which generates s
     private String decryptBlock(String word, trivium tr){
-        String C1 = word.substring(0,encryptedBlockSize-m);
+        String C1 = word.substring(0,blockSize-m);
         String C2 = word.substring(m);
 
-        String s = new String(tr.getNextNBytes(encryptedBlockSize-m),encryptedCharset);
+        String s = new String(tr.getNextNBytes(blockSize-m),encryptedCharset);
 
         String L = new String(ch.XORByteArrays(C1.getBytes(encryptedCharset), s.getBytes(encryptedCharset)),encryptedCharset);
 
         String k = ch.sha512Hash(L + key).substring(0, 10);
-        String fks = ch.sha512Hash(s + k).substring(0, encryptedBlockSize-m);
+        String fks = ch.sha512Hash(s + k).substring(0, blockSize-m);
 
         String R = new String(ch.XORByteArrays(C2.getBytes(encryptedCharset), fks.getBytes(encryptedCharset)),encryptedCharset);
 
@@ -316,13 +315,13 @@ public class client {
     private String encryptWord(String w, trivium tr) {
         String word = ch.encryptECB(w, secretKey);
 
-        String L = word.substring(0,encryptedBlockSize-m);
+        String L = word.substring(0,blockSize-m);
         String R = word.substring(m);
         String k = ch.sha512Hash(L + key).substring(0, 10);
 
-        String s = new String(tr.getNextNBytes(encryptedBlockSize-m),encryptedCharset);
+        String s = new String(tr.getNextNBytes(blockSize-m),encryptedCharset);
 
-        String fks = ch.sha512Hash(s + k).substring(0, encryptedBlockSize-m);
+        String fks = ch.sha512Hash(s + k).substring(0, blockSize-m);
 
         String C1 = new String(ch.XORByteArrays(L.getBytes(encryptedCharset), s.getBytes(encryptedCharset)),encryptedCharset);
         String C2 = new String(ch.XORByteArrays(R.getBytes(encryptedCharset), fks.getBytes(encryptedCharset)),encryptedCharset);

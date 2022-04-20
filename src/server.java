@@ -12,7 +12,7 @@ import java.util.ArrayList;
 
 public class server {
 
-    int encryptedBlockSize;
+    int blockSize;
     int m;
     private CryptoHelper ch;
     private static Charset charset = StandardCharsets.ISO_8859_1;
@@ -20,8 +20,8 @@ public class server {
 
     public server(int blockSize){
         ch = new CryptoHelper();
-        this.encryptedBlockSize = base64OutputLength(blockSize);
-        m = encryptedBlockSize /2;
+        this.blockSize = blockSize;
+        m = blockSize /2;
     }
 
     //searches through users directory and returns files where searchword is included
@@ -93,8 +93,8 @@ public class server {
     returns true if file contains searchword, false if not
      */
     public boolean checkMatch(File encrypted, String searchToken) {
-        String keyword = searchToken.substring(0, encryptedBlockSize);
-        String k = searchToken.substring(encryptedBlockSize);
+        String keyword = searchToken.substring(0, blockSize);
+        String k = searchToken.substring(blockSize);
 
         String fileString = null;
         try {
@@ -104,20 +104,20 @@ public class server {
         }
 
         //Encrypted keyword, not cleartext
-        String L = keyword.substring(0, encryptedBlockSize -m);
+        String L = keyword.substring(0, blockSize -m);
         String R = keyword.substring(m);
 
         for (int j = 0; j <= fileString.length() - 1;) {
 
-            String word = fileString.substring(j, j + encryptedBlockSize);
+            String word = fileString.substring(j, j + blockSize);
 
-            String c1 = word.substring(0, encryptedBlockSize -m);
+            String c1 = word.substring(0, blockSize -m);
 
             String c2 = word.substring(m);
 
             String s = new String(ch.XORByteArrays(c1.getBytes(charset), L.getBytes(charset)), charset);
 
-            String fks = ch.sha512Hash(s + k).substring(0, encryptedBlockSize-m);
+            String fks = ch.sha512Hash(s + k).substring(0, blockSize-m);
 
             String test = new String(ch.XORByteArrays(c2.getBytes(charset), fks.getBytes(charset)), charset);
 
@@ -125,7 +125,7 @@ public class server {
                 return true;
             }
 
-            j = j + encryptedBlockSize;
+            j = j + blockSize;
         }
         return false;
     }

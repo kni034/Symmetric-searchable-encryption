@@ -6,6 +6,7 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
@@ -33,7 +34,7 @@ public class CryptoHelper {
         try {
             Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, key);
-            return Base64.getEncoder().encodeToString(cipher.doFinal(word.getBytes("UTF-8")));
+            return new String(cipher.doFinal(word.getBytes("UTF-8")), StandardCharsets.ISO_8859_1);
         } catch (IllegalBlockSizeException e) {
             e.printStackTrace();
         } catch (BadPaddingException e) {
@@ -72,7 +73,7 @@ public class CryptoHelper {
         {
             Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, key);
-            return new String(cipher.doFinal(Base64.getDecoder().decode(cipherText)));
+            return new String(cipher.doFinal(cipherText.getBytes(StandardCharsets.ISO_8859_1)));
         }
         catch (Exception e)
         {
