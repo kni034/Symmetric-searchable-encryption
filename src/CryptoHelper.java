@@ -1,7 +1,4 @@
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
+import javax.crypto.*;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
@@ -50,6 +47,22 @@ public class CryptoHelper {
         }
 
         return null;
+    }
+
+    public static byte[] calculateHMAC(byte[] data, byte[] key)
+    {
+        String HMAC_SHA512 = "HmacSHA512";
+        SecretKeySpec secretKeySpec = new SecretKeySpec(key, HMAC_SHA512);
+        Mac mac = null;
+        try {
+            mac = Mac.getInstance(HMAC_SHA512);
+            mac.init(secretKeySpec);
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            e.printStackTrace();
+        }
+
+        assert mac != null;
+        return mac.doFinal(data);
     }
 
     //converts each byte to binary and xors with the corresponding byte in the other array to get a new byte array

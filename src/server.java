@@ -33,12 +33,12 @@ public class server {
 
         ArrayList<File> returnFiles = new ArrayList<>();
 
-        for(File f : files){
-            if(f.getName().equals(".lookup")){
+        for(File file : files){
+            if(file.getName().equals(".lookup")){
                 continue;
             }
-            if(checkMatch(f, token)){
-                returnFiles.add(f);
+            if(checkMatch(file, token)){
+                returnFiles.add(file);
             }
         }
 
@@ -92,7 +92,7 @@ public class server {
     input encrypted = the encrypted file to be searched, searchToken = the searchtoken with the encrypted searchword
     returns true if file contains searchword, false if not
      */
-    public boolean checkMatch(File encrypted, String searchToken) {
+    private boolean checkMatch(File encrypted, String searchToken) {
         String keyword = searchToken.substring(0, blockSize);
         String k = searchToken.substring(blockSize);
 
@@ -117,7 +117,7 @@ public class server {
 
             String s = new String(ch.XORByteArrays(c1.getBytes(charset), L.getBytes(charset)), charset);
 
-            String fks = ch.sha512Hash(s + k).substring(0, blockSize-m);
+            String fks = new String(ch.calculateHMAC(s.getBytes(),k.getBytes())).substring(0,blockSize-m);
 
             String test = new String(ch.XORByteArrays(c2.getBytes(charset), fks.getBytes(charset)), charset);
 
@@ -128,12 +128,5 @@ public class server {
             j = j + blockSize;
         }
         return false;
-    }
-
-
-    //calculates how big the output of base64 encoder, based on the input size.
-    //used to caluclate the encrypted block size
-    int base64OutputLength(int blocksize) {
-        return (int)(4 * Math.ceil(blocksize / 3.0));
     }
 }

@@ -1,17 +1,10 @@
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
-import java.lang.reflect.Array;
-import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.security.*;
 import java.util.*;
 import java.io.IOException;
 import java.io.File;
@@ -75,7 +68,8 @@ public class client {
             keyword = ch.encryptECB(keyword, secretKey);
             String L = keyword.substring(0, blockSize - m);
 
-            String k = ch.sha512Hash(L + key).substring(0, 10);
+            String k = new String(ch.calculateHMAC(L.getBytes(),key.getBytes())).substring(0,10);
+            //String k = ch.sha512Hash(L + key).substring(0, 10);
 
 
             String token = keyword + k;
@@ -93,16 +87,16 @@ public class client {
         }
         ArrayList<File> fileList = new ArrayList<>();
         Collections.addAll(fileList, files);
-        for(File f: files){
-            if(f.getName().equals(".lookup")){
-                setLookup(f);
-                fileList.remove(f);
+        for(File file: files){
+            if(file.getName().equals(".lookup")){
+                setLookup(file);
+                fileList.remove(file);
             }
         }
 
-        for(File f: fileList){
-            File g = decryptFile(f);
-            g.renameTo(new File(tmpFolder+ f.getName()));
+        for(File file: fileList){
+            File g = decryptFile(file);
+            g.renameTo(new File(tmpFolder+ file.getName()));
         }
     }
 
@@ -174,8 +168,9 @@ public class client {
 
         String L = new String(ch.XORByteArrays(C1.getBytes(encryptedCharset), s.getBytes(encryptedCharset)),encryptedCharset);
 
-        String k = ch.sha512Hash(L + key).substring(0, 10);
-        String fks = ch.sha512Hash(s + k).substring(0, blockSize-m);
+        String k = new String(ch.calculateHMAC(L.getBytes(),key.getBytes())).substring(0,10);
+        String fks = new String(ch.calculateHMAC(s.getBytes(),k.getBytes())).substring(0,blockSize-m);
+
 
         String R = new String(ch.XORByteArrays(C2.getBytes(encryptedCharset), fks.getBytes(encryptedCharset)),encryptedCharset);
 
@@ -254,13 +249,13 @@ public class client {
         System.out.println("Client: search successful");
     }
 
-    public void upload(File f){
+    public void upload(File file){
         File oldLookup = server.getLookup(getName());
         if(oldLookup != null){
             setLookup(oldLookup);
         }
 
-        File encrypted = encryptFile(f);
+        File encrypted = encryptFile(file);
         File lookup = getLookup();
         server.upload(getName(), encrypted, lookup);
         System.out.println("Client: upload successful");
@@ -317,11 +312,11 @@ public class client {
 
         String L = word.substring(0,blockSize-m);
         String R = word.substring(m);
-        String k = ch.sha512Hash(L + key).substring(0, 10);
 
+        String k = new String(ch.calculateHMAC(L.getBytes(),key.getBytes())).substring(0,10);
         String s = new String(tr.getNextNBytes(blockSize-m),encryptedCharset);
 
-        String fks = ch.sha512Hash(s + k).substring(0, blockSize-m);
+        String fks = new String(ch.calculateHMAC(s.getBytes(),k.getBytes())).substring(0,blockSize-m);
 
         String C1 = new String(ch.XORByteArrays(L.getBytes(encryptedCharset), s.getBytes(encryptedCharset)),encryptedCharset);
         String C2 = new String(ch.XORByteArrays(R.getBytes(encryptedCharset), fks.getBytes(encryptedCharset)),encryptedCharset);
@@ -369,7 +364,7 @@ public class client {
         return words.toArray(new String[0]);
     }
 
-    public static String byteListToString(List<Byte> l, Charset charset) {
+    private static String byteListToString(List<Byte> l, Charset charset) {
         if (l == null) {
             return "";
         }
