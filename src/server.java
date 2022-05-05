@@ -16,12 +16,19 @@ public class server {
     int m;
     private CryptoHelper ch;
     private static Charset charset = StandardCharsets.ISO_8859_1;
-    private static String path = "./resources/serverStorage/";
+    private String path = "./resources/serverStorage/";
 
     public server(int blockSize){
         ch = new CryptoHelper();
         this.blockSize = blockSize;
         m = blockSize /2;
+    }
+
+    public server(int blockSize, String folderPath){
+        ch = new CryptoHelper();
+        this.blockSize = blockSize;
+        m = blockSize /2;
+        this.path = folderPath + "serverStorage/";
     }
 
     //searches through users directory and returns files where searchword is included

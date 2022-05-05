@@ -4,6 +4,7 @@ import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.io.IOException;
@@ -20,7 +21,8 @@ public class client {
     private String key;
     private HashMap<String, String> lookup;
     private static char filler = '*';
-    private static final String tmpFolder = "./resources/";
+    private String tmpFolder = "./resources/";
+    private String userPath = "./resources/clientStorage/";
     private SecretKeySpec secretKey;
     private String initVector;
     private IvParameterSpec iv;
@@ -28,18 +30,19 @@ public class client {
     private static Charset charset = StandardCharsets.UTF_8;
     private static Charset encryptedCharset = StandardCharsets.ISO_8859_1;
     private String userID;
+    private String name;
     private server server;
 
 
     //initializes the sse with a secret key
 
-    public client(String userID, String userkey, server server, int blockSize){
+    public client(String name, String userkey, server server, int blockSize){
         this.blockSize = blockSize;
-
+        ch = new CryptoHelper();
         this.m = blockSize/2;
         this.server = server;
-        this.userID = userID;
-        ch = new CryptoHelper();
+        this.userID = new String(ch.calculateHMAC(name.getBytes(),userkey.getBytes()), StandardCharsets.ISO_8859_1);
+        this.name = name;
         this.key = ch.sha512Hash(userkey);
         secretKey = new SecretKeySpec(key.substring(0,16).getBytes(), "AES");
         initVector = key.substring(16,32);
@@ -49,10 +52,46 @@ public class client {
             e.printStackTrace();
         }
         lookup = new HashMap<>();
+        initClientFolder();
+    }
+    public client(String name, String userkey, server server, int blockSize, String folderPath){
+        this.tmpFolder = folderPath;
+        this.userPath = folderPath + "clientStorage/";
+
+        this.blockSize = blockSize;
+        ch = new CryptoHelper();
+        this.m = blockSize/2;
+        this.server = server;
+        this.userID = new String(ch.calculateHMAC(name.getBytes(),userkey.getBytes()), StandardCharsets.ISO_8859_1);
+        this.name = name;
+        this.key = ch.sha512Hash(userkey);
+        secretKey = new SecretKeySpec(key.substring(0,16).getBytes(), "AES");
+        initVector = key.substring(16,32);
+        try {
+            iv = new IvParameterSpec(initVector.getBytes("UTF-8"));
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        lookup = new HashMap<>();
+        initClientFolder();
     }
 
     public String getName(){
+        return name;
+    }
+
+    public String getID() {
         return userID;
+    }
+
+    private void initClientFolder(){
+        Path clientPath = Paths.get(userPath + name);
+        try {
+            Files.createDirectories(clientPath);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
     }
 
 
@@ -96,7 +135,7 @@ public class client {
 
         for(File file: fileList){
             File g = decryptFile(file);
-            g.renameTo(new File(tmpFolder+ file.getName()));
+            g.renameTo(new File(userPath + name + "/" + file.getName()));
         }
     }
 
@@ -240,9 +279,9 @@ public class client {
 
     public void search(String searchWord){
         String[] tokens = generateSearchTokens(searchWord);
-        List<File> matches = Arrays.asList(server.search(getName(),tokens[0]));
+        List<File> matches = Arrays.asList(server.search(getID(),tokens[0]));
         for (String token:tokens) {
-            File[] files = server.search(getName(), token);
+            File[] files = server.search(getID(), token);
             matches.retainAll(Arrays.asList(files));
         }
         decryptAllFiles(matches.toArray(new File[0]));
@@ -250,14 +289,14 @@ public class client {
     }
 
     public void upload(File file){
-        File oldLookup = server.getLookup(getName());
+        File oldLookup = server.getLookup(getID());
         if(oldLookup != null){
             setLookup(oldLookup);
         }
 
         File encrypted = encryptFile(file);
         File lookup = getLookup();
-        server.upload(getName(), encrypted, lookup);
+        server.upload(getID(), encrypted, lookup);
         System.out.println("Client: upload successful");
     }
 
