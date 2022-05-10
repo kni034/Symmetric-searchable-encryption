@@ -41,7 +41,7 @@ public class client {
         ch = new CryptoHelper();
         this.m = blockSize/2;
         this.server = server;
-        this.userID = new String(ch.calculateHMAC(name.getBytes(),userkey.getBytes()), StandardCharsets.ISO_8859_1);
+        this.userID = new String(ch.calculateHMAC(name.getBytes(),userkey.getBytes()), StandardCharsets.UTF_8);
         this.name = name;
         this.key = ch.sha512Hash(userkey);
         secretKey = new SecretKeySpec(key.substring(0,16).getBytes(), "AES");
@@ -62,7 +62,7 @@ public class client {
         ch = new CryptoHelper();
         this.m = blockSize/2;
         this.server = server;
-        this.userID = new String(ch.calculateHMAC(name.getBytes(),userkey.getBytes()), StandardCharsets.ISO_8859_1);
+        this.userID = new String(ch.calculateHMAC(name.getBytes(),userkey.getBytes()), StandardCharsets.UTF_8);
         this.name = name;
         this.key = ch.sha512Hash(userkey);
         secretKey = new SecretKeySpec(key.substring(0,16).getBytes(), "AES");
@@ -81,7 +81,7 @@ public class client {
     }
 
     public String getID() {
-        return userID;
+        return name;
     }
 
     private void initClientFolder(){
@@ -208,7 +208,7 @@ public class client {
         String L = new String(ch.XORByteArrays(C1.getBytes(encryptedCharset), s.getBytes(encryptedCharset)),encryptedCharset);
 
         String k = new String(ch.calculateHMAC(L.getBytes(),key.getBytes())).substring(0,10);
-        String fks = new String(ch.calculateHMAC(s.getBytes(),k.getBytes())).substring(0,blockSize-m);
+        String fks = new String(ch.calculateHMAC(s.getBytes(),k.getBytes()), encryptedCharset).substring(0,blockSize-m);
 
 
         String R = new String(ch.XORByteArrays(C2.getBytes(encryptedCharset), fks.getBytes(encryptedCharset)),encryptedCharset);
@@ -285,7 +285,7 @@ public class client {
             matches.retainAll(Arrays.asList(files));
         }
         decryptAllFiles(matches.toArray(new File[0]));
-        System.out.println("Client: search successful");
+        System.out.println("Client: search successful, found "+ matches.size() + " matches");
     }
 
     public void upload(File file){
@@ -355,7 +355,7 @@ public class client {
         String k = new String(ch.calculateHMAC(L.getBytes(),key.getBytes())).substring(0,10);
         String s = new String(tr.getNextNBytes(blockSize-m),encryptedCharset);
 
-        String fks = new String(ch.calculateHMAC(s.getBytes(),k.getBytes())).substring(0,blockSize-m);
+        String fks = new String(ch.calculateHMAC(s.getBytes(),k.getBytes()),encryptedCharset).substring(0,blockSize-m);
 
         String C1 = new String(ch.XORByteArrays(L.getBytes(encryptedCharset), s.getBytes(encryptedCharset)),encryptedCharset);
         String C2 = new String(ch.XORByteArrays(R.getBytes(encryptedCharset), fks.getBytes(encryptedCharset)),encryptedCharset);

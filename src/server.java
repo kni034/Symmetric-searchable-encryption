@@ -124,7 +124,7 @@ public class server {
 
             String s = new String(ch.XORByteArrays(c1.getBytes(charset), L.getBytes(charset)), charset);
 
-            String fks = new String(ch.calculateHMAC(s.getBytes(),k.getBytes())).substring(0,blockSize-m);
+            String fks = new String(ch.calculateHMAC(s.getBytes(),k.getBytes()),charset).substring(0,blockSize-m);
 
             String test = new String(ch.XORByteArrays(c2.getBytes(charset), fks.getBytes(charset)), charset);
 
