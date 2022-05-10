@@ -84,20 +84,20 @@ public class main {
                     fc.showOpenDialog(null);
                     File[] files = fc.getSelectedFiles();
 
-                    long startTime = System.currentTimeMillis();
+                    //long startTime = System.currentTimeMillis();
                     for(File file : files){
                         uploadProtocol(client, file);
                     }
-                    long endTime = System.currentTimeMillis();
-                    System.out.println("That took " + (endTime - startTime) + " milliseconds");
+                    //long endTime = System.currentTimeMillis();
+                    //System.out.println("That took " + (endTime - startTime) + " milliseconds");
                 }
                 else if(command.equals("s")){
                     System.out.println("Keyword to search for: ");
                     String keyword = sc.nextLine();
-                    long startTime = System.currentTimeMillis();
+                    //long startTime = System.currentTimeMillis();
                     searchProtocol(client, keyword);
-                    long endTime = System.currentTimeMillis();
-                    System.out.println("That took " + (endTime - startTime) + " milliseconds");
+                    //long endTime = System.currentTimeMillis();
+                    //System.out.println("That took " + (endTime - startTime) + " milliseconds");
                 }
                 else if(command.equals("l")){
                     break;
