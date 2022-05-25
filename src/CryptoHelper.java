@@ -15,14 +15,6 @@ import java.util.LinkedList;
 
 public class CryptoHelper {
 
-    //private static int blockSize = 24;
-    //private static int m = blockSize/2;
-    //private String key;
-    //private static SecretKeySpec secretKey;
-    //private static String initVector;
-
-
-
     public CryptoHelper(){
 
     }

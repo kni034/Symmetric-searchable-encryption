@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.SecureRandom;
 import java.util.*;
 import java.io.IOException;
 import java.io.File;
@@ -35,7 +36,6 @@ public class client {
 
 
     //initializes the sse with a secret key
-
     public client(String name, String userkey, server server, int blockSize){
         this.blockSize = blockSize;
         ch = new CryptoHelper();
@@ -175,7 +175,7 @@ public class client {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        encrypted.delete();
+        //encrypted.delete();
 
         return decrypted;
     }
@@ -297,7 +297,7 @@ public class client {
         File encrypted = encryptFile(file);
         File lookup = getLookup();
         server.upload(getID(), encrypted, lookup);
-        System.out.println("Client: upload successful");
+        //System.out.println("Client: upload successful");
     }
 
     //encrypts a file with the sse algorithm.
@@ -307,12 +307,13 @@ public class client {
         if(lookup == null){
             lookup = new HashMap<>();
         }
-        String numberOfFiles = "" + lookup.size();
-        String seed = key.substring(0,10);
-        seed = seed.substring(0, seed.length() - numberOfFiles.length());
-        seed += numberOfFiles;
 
-        trivium tr = new trivium(seed, initVector.substring(0, 10));
+        byte[] seed = new byte[10];
+        SecureRandom random = new SecureRandom();
+        random.nextBytes(seed);
+        String seed_string = new String(seed, StandardCharsets.ISO_8859_1);
+
+        trivium tr = new trivium(seed_string, initVector.substring(0, 10));
         File encrypted = new File(tmpFolder + clear.getName());
         try {
             Scanner fileReader = new Scanner(clear);
@@ -339,7 +340,7 @@ public class client {
             e.printStackTrace();
         }
 
-        lookup.put(ch.fileChecksum(encrypted), seed);
+        lookup.put(ch.fileChecksum(encrypted), seed_string);
 
         return encrypted;
     }
@@ -386,8 +387,6 @@ public class client {
                 a[blockSize-1] = ("1".getBytes(charset)[0]);
 
 
-
-
             words.add(new String(a, charset));
         }
         if(wordBytes.size() != 0) {
@@ -416,9 +415,4 @@ public class client {
         return new String(array, charset);
     }
 
-    //calculates how big the output of base64 encoder, based on the input size.
-    //used to caluclate the encrypted block size
-    int base64OutputLength(int blocksize) {
-        return (int)(4 * Math.ceil(blocksize / 3.0));
-    }
 }

@@ -10,24 +10,11 @@ import java.util.Scanner;
 
 
 public class main {
+
+    static int blockSize = 32;
+
     public static void main(String[] args) {
-        //server server = new server(32);
 
-        //client alice = new client("alice123", "alicekey123", server, 32);
-        //client bob = new client("bobID", "password123", server, 32);
-
-        //File alicefile1 = new File("./resources/test2.txt");
-        //File bobfile1 = new File("./resources/test2.txt");
-        //File alicefile2 = new File("./resources/test3.txt");
-        //File bobfile2 = new File("./resources/test4.txt");
-
-        //uploadProtocol(alice, alicefile1);
-        //uploadProtocol(bob, bobfile1);
-        //uploadProtocol(alice, alicefile2);
-        //uploadProtocol(bob, bobfile2);
-
-        //searchProtocol(alice, "1234");
-        //searchProtocol(bob, "123");
         loop();
     }
 
@@ -58,7 +45,7 @@ public class main {
         System.out.println(path);
 
         fc = new JFileChooser(dir);
-        server server = new server(32, path);
+        server server = new server(blockSize, path);
 
         while(true){
 
@@ -70,11 +57,11 @@ public class main {
                 System.out.println("username or password cannot be empty");
                 continue;
             }
-            client client = new client(username, password, server, 32, path);
+            client client = new client(username, password, server, blockSize, path);
             while(true){
 
                 System.out.println("You are logged in as " + client.getName() + " with userID: " + client.getID());
-                System.out.println("If you want to uplaod a file press 'u' (select multiple files by holding 'ctrl' while selecting)");
+                System.out.println("If you want to uplaod a file press 'u' (select multiple files by holding 'ctrl' while selecting, or 'ctrl' + 'a' to select all)");
                 System.out.println("If you want to search for a word press 's'");
                 System.out.println("If you want to log out press 'l', or press 'q' to quit");
                 String command = sc.nextLine();
@@ -84,20 +71,16 @@ public class main {
                     fc.showOpenDialog(null);
                     File[] files = fc.getSelectedFiles();
 
-                    //long startTime = System.currentTimeMillis();
-                    for(File file : files){
+                    for (File file : files) {
                         uploadProtocol(client, file);
                     }
-                    //long endTime = System.currentTimeMillis();
-                    //System.out.println("That took " + (endTime - startTime) + " milliseconds");
                 }
                 else if(command.equals("s")){
                     System.out.println("Keyword to search for: ");
                     String keyword = sc.nextLine();
-                    //long startTime = System.currentTimeMillis();
+
                     searchProtocol(client, keyword);
-                    //long endTime = System.currentTimeMillis();
-                    //System.out.println("That took " + (endTime - startTime) + " milliseconds");
+
                 }
                 else if(command.equals("l")){
                     break;
