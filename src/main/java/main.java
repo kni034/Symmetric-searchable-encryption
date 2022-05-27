@@ -54,7 +54,7 @@ public class main {
             client client = new client(username, password, server, blockSize, path);
             while(true){
 
-                System.out.println("You are logged in as " + client.getName() + " with userID: " + client.getID());
+                System.out.println("You are logged in as " + client.getName());
                 System.out.println("If you want to uplaod a file press 'u' (select multiple files by holding 'ctrl' while selecting, or 'ctrl' + 'a' to select all)");
                 System.out.println("If you want to search for a word press 's'");
                 System.out.println("If you want to log out press 'l', or press 'q' to quit");
