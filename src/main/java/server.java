@@ -48,8 +48,8 @@ public class server {
                 returnFiles.add(file);
             }
         }
-
         if (returnFiles.size() != 0){
+
             returnFiles.add(new File(userPath + "/.lookup"));
         }
         File[] returnArray = returnFiles.toArray(new File[0]);

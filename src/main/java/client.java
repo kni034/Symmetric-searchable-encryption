@@ -120,6 +120,7 @@ public class client {
 
     private void decryptAllFiles(File[] files){
         if (files.length == 0){
+            System.out.println("Search complete, found 0 matches");
             return;
         }
         ArrayList<File> fileList = new ArrayList<>();
@@ -135,6 +136,7 @@ public class client {
             File g = decryptFile(file);
             g.renameTo(new File(userPath + name + "/" + file.getName()));
         }
+        System.out.println("Search complete, found " + fileList.size() + " matches");
     }
 
     //decrypts a file encrypted by the same user, uses the lookup table
@@ -143,7 +145,7 @@ public class client {
     private File decryptFile(File encrypted){
         String hashed = ch.fileChecksum(encrypted);
         if (!lookup.containsKey(hashed)){
-            System.out.println("key missing in lookup");
+            System.out.println("key missing in lookup, cannot decrypt file");
             return encrypted;
         }
         String seed = lookup.get(hashed);
@@ -276,8 +278,8 @@ public class client {
             File[] files = server.search(getID(), token);
             matches.retainAll(Arrays.asList(files));
         }
+
         decryptAllFiles(matches.toArray(new File[0]));
-        System.out.println("Client: search successful, found "+ matches.size() + " matches");
     }
 
     public void upload(File file){

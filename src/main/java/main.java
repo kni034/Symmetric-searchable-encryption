@@ -1,7 +1,9 @@
 import javax.swing.*;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Scanner;
-
 
 public class main {
 
@@ -35,39 +37,48 @@ public class main {
         fc.setMultiSelectionEnabled(false);
         fc.showOpenDialog(null);
         File dir = fc.getSelectedFile();
+        if (dir == null){
+            System.out.println("You need to choose a working directory, closing the program...");
+            System.exit(1);
+        }
         String path = dir.getAbsolutePath() + "/";
         System.out.println(path);
 
         fc = new JFileChooser(dir);
         server server = new server(blockSize, path);
-
         while(true){
-
             System.out.println("Username: ");
             String username = sc.nextLine();
             System.out.println("Password: ");
             String password = sc.nextLine();
             if (username.equals("") || password.equals("")){
+                System.out.println("pass" +  password);
                 System.out.println("username or password cannot be empty");
                 continue;
             }
             client client = new client(username, password, server, blockSize, path);
             while(true){
-
+                System.out.println("\n \n");
                 System.out.println("You are logged in as " + client.getName());
                 System.out.println("If you want to uplaod a file press 'u' (select multiple files by holding 'ctrl' while selecting, or 'ctrl' + 'a' to select all)");
                 System.out.println("If you want to search for a word press 's'");
                 System.out.println("If you want to log out press 'l', or press 'q' to quit");
+                System.out.print("Command: ");
                 String command = sc.nextLine();
+                command = command.toLowerCase();
                 if(command.equals("u")){
                     fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
                     fc.setMultiSelectionEnabled(true);
                     fc.showOpenDialog(null);
                     File[] files = fc.getSelectedFiles();
-
+                    if (files.length == 0){
+                        System.out.println("No files chosen, try agian");
+                        continue;
+                    }
                     for (File file : files) {
                         uploadProtocol(client, file);
                     }
+                    System.out.println("Upload complete");
                 }
                 else if(command.equals("s")){
                     System.out.println("Keyword to search for: ");
